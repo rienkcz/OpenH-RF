@@ -25,6 +25,7 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import hdf5plugin
 import numpy as np
 import zea
 from zea.ops import Beamform, Cast, Demodulate, EnvelopeDetect, LogCompress, Normalize
