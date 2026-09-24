@@ -1,8 +1,9 @@
 parameters:
-    xlims: [-0.08, 0.08]   # matches reconstruct.py
-    zlims: [0.05, 0.10]
-    grid_size_x: 1600
-    grid_size_z: 700
+    xlims: [-0.08, 0.08] # 160 mm
+    zlims: [0.05, 0.10] # 50 mm
+    grid_size_x: 1536 # 0.104 mm isotropic pixels
+    grid_size_z: 480
+    dynamic_range: [-50, 0]
 pipeline:
     operations:
     -   name: keras.ops.cast
