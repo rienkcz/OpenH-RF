@@ -86,7 +86,7 @@ Suitable for research in:
   - Transmit: diverging wave (no transmit delays, so the diverging nature is induced by the curvature of the surface)
   - Sampling rate: ~19.2 MHz
   - Sound speed used: 1509.6 m/s (water-based phantom)
-  - Data type: raw RF (n_ch = 192, float32)
+  - Data type: raw RF (n_ch = 1, float32)
   - System: Verasonics Vantage 256
 
 ## Processing the Dataset
