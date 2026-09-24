@@ -5,10 +5,12 @@ Dataset link: https://huggingface.co/datasets/nvidia/OpenH-RF/tree/main/twente-v
 
 B-mode reconstruction of single plane-wave flow-phantom channel data.
 
-Each track has its own pipeline (``pipeline_<track>.yaml``); the script runs
-them all on the chosen file and saves the results side by side in one PNG. A
-second PNG pairs the short-imaging-pulse B-mode with the synchronized camera
-image stored in the same file.
+Each track has its own pipeline (``pipeline_<track>.yaml``). Both tracks use
+the same delay-and-sum chain, defined in ``build_pipeline()`` and written to
+both YAMLs together with ``PARAMETERS``; the script runs them on the chosen
+file and saves the results side by side in one PNG. A second PNG pairs the
+short-imaging-pulse B-mode with the synchronized camera image stored in the
+same file.
 
 Requires zea>=0.1.6 (https://github.com/tue-bmd/zea), the library that does the
 ultrasound processing here, together with one of its Keras backends (JAX,
@@ -31,14 +33,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import zea
 from zea import Config, File, Pipeline
+from zea.ops import Beamform, Cast, Demodulate, EnvelopeDetect, LogCompress, Normalize
 
 HERE = Path(__file__).parent
+
+# 160 x 50 mm field of view on a 0.104 mm isotropic grid.
+PARAMETERS = {
+    "xlims": [-0.08, 0.08],
+    "zlims": [0.05, 0.10],
+    "grid_size_x": 1536,
+    "grid_size_z": 480,
+    "dynamic_range": [-50, 0],
+}
 
 # --- Inputs -----------------------------------------------------------------
 # Defaults stream straight from the published corpus. Swap any of these for a
 # local path to run against your own copy.
 ZEA_FILE = "hf://nvidia/OpenH-RF/twente-vortexflow/data/AcqData_PVoltage80_TVoltage3.4.hdf5"
-CONFIGS = {  # track label -> pipeline YAML
+CONFIGS = {  # track label -> pipeline YAML, written by write_config()
     "short imaging pulse": HERE / "pipeline_short_imaging_pulse.yaml",
     "chirp": HERE / "pipeline_chirp.yaml",
 }
@@ -48,8 +60,34 @@ OUT_MAPPING = HERE / "assets" / "reference_mapping.png"  # B-mode + camera image
 HF_CONFIGS = "hf://nvidia/OpenH-RF/twente-vortexflow/"  # where CONFIGS are published
 
 
+def build_pipeline() -> Pipeline:
+    """Define the delay-and-sum B-mode pipeline in code."""
+    return Pipeline(
+        operations=[
+            Cast(dtype="float32"),
+            Demodulate(),  # RF (n_ch=1) -> IQ before beamforming
+            Beamform(),
+            EnvelopeDetect(),
+            Normalize(output_range=(0.0, 1.0)),
+            LogCompress(),
+        ],
+    )
+
+
+def write_config(pipeline: Pipeline, path: Path) -> None:
+    """Serialize the pipeline and acquisition parameters to a YAML config file."""
+    config = pipeline.to_config()
+    config["parameters"] = PARAMETERS
+    config.to_yaml(str(path))
+
+
 def main():
     zea.init_device()
+
+    # Define the pipeline in code, save it (with PARAMETERS) to each track's
+    # YAML, then load those YAMLs back in so the shipped files are what runs.
+    for path in CONFIGS.values():
+        write_config(build_pipeline(), path)
 
     configs, parameters, raw = {}, {}, {}
     with File(ZEA_FILE) as f:
